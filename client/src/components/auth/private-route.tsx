@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useGetProfile } from '@/hooks/use-auth';
 
-export default function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore();
+export default function PrivateRoute({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) {
+  const { user, isAuthenticated } = useAuthStore();
   const router = useRouter();
   const { data, isError, isLoading } = useGetProfile();
 
@@ -14,13 +14,17 @@ export default function PrivateRoute({ children }: { children: React.ReactNode }
     if (!isLoading && !isAuthenticated) {
       router.push('/auth/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+
+    if (!isLoading && isAuthenticated && adminOnly && user?.role !== 'SUPERADMIN') {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, isLoading, router, adminOnly, user]);
 
   if (isLoading) {
     return <div>Loading...</div>; // Or a spinner component
   }
 
-  if (isAuthenticated) {
+  if (isAuthenticated && (!adminOnly || (adminOnly && user?.role === 'SUPERADMIN'))) {
     return <>{children}</>;
   }
 
