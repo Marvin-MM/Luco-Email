@@ -96,3 +96,19 @@ export const useGetDashboard = (period: string = '30d') => {
     queryFn: () => axios.get(`/analytics/dashboard?period=${period}`).then(res => res.data),
   });
 };
+
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => axios.put('/auth/profile', data).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+};
+
+export const useChangePassword = () => {
+  return useMutation({
+    mutationFn: (data: any) => axios.post('/auth/change-password', data).then(res => res.data),
+  });
+};
