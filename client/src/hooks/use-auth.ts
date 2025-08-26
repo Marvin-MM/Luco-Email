@@ -112,3 +112,15 @@ export const useChangePassword = () => {
     mutationFn: (data: any) => axios.post('/auth/change-password', data).then(res => res.data),
   });
 };
+
+export const useCompleteGoogleRegistration = () => {
+  const { setUser } = useAuthStore();
+  return useMutation({
+    mutationFn: (data: any) => axios.post('/auth/complete-google-registration', data).then(res => res.data),
+    onSuccess: (data) => {
+      if (data.success) {
+        setUser(data.data.user, data.data.tenant);
+      }
+    },
+  });
+};

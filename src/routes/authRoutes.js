@@ -27,6 +27,7 @@ router.post('/resend-otp', otpRateLimit, authController.resendOTP);
 router.post('/login', authRateLimit, authController.login);
 router.post('/refresh', authRateLimit, authController.refreshToken);
 router.post('/logout', authenticateToken, authController.logout);
+router.post('/complete-google-registration', authenticateToken, authController.completeGoogleRegistration);
 
 // Google OAuth Routes
 router.get('/google',
