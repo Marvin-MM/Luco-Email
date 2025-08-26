@@ -1,9 +1,10 @@
 'use client';
 
 import { useGetApplicationById, useUpdateApplication } from '@/hooks/use-application';
-import { useGetIdentities, useCreateIdentity, useDeleteIdentity, useVerifyIdentity } from '@/hooks/use-identity';
+import { useGetIdentities, useCreateIdentity, useDeleteIdentity, useVerifyIdentity, useGetDnsRecords } from '@/hooks/use-identity';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,8 @@ export default function ApplicationDetailsPage() {
   const { mutate: verifyIdentity } = useVerifyIdentity();
 
   const [name, setName] = useState('');
+  const [selectedIdentity, setSelectedIdentity] = useState<any>(null);
+  const { data: dnsRecordsData, isLoading: dnsRecordsIsLoading } = useGetDnsRecords(selectedIdentity?.id);
   const [description, setDescription] = useState('');
   const [identityType, setIdentityType] = useState('EMAIL');
   const [identityValue, setIdentityValue] = useState('');
@@ -116,6 +119,23 @@ export default function ApplicationDetailsPage() {
                   <TableCell>{identity.type}</TableCell>
                   <TableCell>{identity.status}</TableCell>
                   <TableCell className="space-x-2">
+                    {identity.type === 'DOMAIN' && (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" onClick={() => setSelectedIdentity(identity)}>DNS Records</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>DNS Records for {identity.value}</DialogTitle>
+                          </DialogHeader>
+                          {dnsRecordsIsLoading ? <div>Loading...</div> : (
+                            <pre className="p-4 bg-muted rounded-md overflow-x-auto">
+                              {JSON.stringify(dnsRecordsData?.data.dnsRecords, null, 2)}
+                            </pre>
+                          )}
+                        </DialogContent>
+                      </Dialog>
+                    )}
                     {identity.status !== 'VERIFIED' && <Button size="sm" onClick={() => verifyIdentity(identity.id)}>Verify</Button>}
                     <Button size="sm" variant="destructive" onClick={() => handleDeleteIdentity(identity.id)}>
                       <Trash2 className="h-4 w-4" />

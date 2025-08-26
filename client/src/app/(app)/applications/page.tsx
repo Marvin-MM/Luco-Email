@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useGetApplications, useCreateApplication } from '@/hooks/use-application';
+import { useGetApplications, useCreateApplication, useDeleteApplication } from '@/hooks/use-application';
 import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -27,6 +28,7 @@ import Link from 'next/link';
 export default function ApplicationsPage() {
   const { data, isLoading, isError, error } = useGetApplications();
   const { mutate: createApplication, isPending } = useCreateApplication();
+  const { mutate: deleteApplication } = useDeleteApplication();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -39,6 +41,12 @@ export default function ApplicationsPage() {
         setDescription('');
       },
     });
+  };
+
+  const handleDeleteApplication = (id: string) => {
+    if (confirm('Are you sure you want to delete this application?')) {
+      deleteApplication(id);
+    }
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -93,6 +101,7 @@ export default function ApplicationsPage() {
             <TableHead>Templates</TableHead>
             <TableHead>Emails Sent</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -107,6 +116,11 @@ export default function ApplicationsPage() {
               <TableCell>{app._count.templates}</TableCell>
               <TableCell>{app._count.emailLogs}</TableCell>
               <TableCell>{app.isActive ? 'Active' : 'Inactive'}</TableCell>
+              <TableCell>
+                <Button size="sm" variant="destructive" onClick={() => handleDeleteApplication(app.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
