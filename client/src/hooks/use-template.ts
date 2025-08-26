@@ -19,6 +19,22 @@ export const useCreateTemplate = () => {
   });
 };
 
+export const usePreviewTemplate = () => {
+  return useMutation({
+    mutationFn: ({ id, variables }: { id: string, variables: any }) => axios.post(`/templates/${id}/preview`, { variables }).then(res => res.data),
+  });
+};
+
+export const useCloneTemplate = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string, name: string }) => axios.post(`/templates/${id}/clone`, { name }).then(res => res.data),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['templates', data.data.template.applicationId] });
+    },
+  });
+};
+
 export const useGetTemplateById = (id: string) => {
   return useQuery({
     queryKey: ['template', id],
@@ -38,13 +54,12 @@ export const useUpdateTemplate = () => {
   });
 };
 
-export const useDeleteTemplate = () => {
+export const useDeleteTemplate = (applicationId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => axios.delete(`/templates/${id}`).then(res => res.data),
     onSuccess: () => {
-      // We need to know the applicationId to invalidate the query
-      queryClient.invalidateQueries({ queryKey: ['templates'] });
+      queryClient.invalidateQueries({ queryKey: ['templates', applicationId] });
     },
   });
 };

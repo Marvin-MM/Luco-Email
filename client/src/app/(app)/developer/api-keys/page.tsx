@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useGetApiKeys, useCreateApiKey, useDeleteApiKey } from '@/hooks/use-api-key';
+import { useState, useEffect } from 'react';
+import { useGetApiKeys, useCreateApiKey, useDeleteApiKey, useUpdateApiKey } from '@/hooks/use-api-key';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -26,12 +26,21 @@ import { Trash2 } from 'lucide-react';
 
 export default function ApiKeysPage() {
   const { data, isLoading, isError, error } = useGetApiKeys();
-  const { mutate: createApiKey, isPending } = useCreateApiKey();
+  const { mutate: createApiKey, isPending: isCreating } = useCreateApiKey();
   const { mutate: deleteApiKey } = useDeleteApiKey();
+  const { mutate: updateApiKey, isPending: isUpdating } = useUpdateApiKey();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedKey, setSelectedKey] = useState<any>(null);
   const [newKeyData, setNewKeyData] = useState<{ apiKey: string, keyInfo: any } | null>(null);
   const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (selectedKey) {
+      setName(selectedKey.name);
+    }
+  }, [selectedKey]);
 
   const handleCreateApiKey = () => {
     createApiKey({ name }, {
@@ -45,6 +54,16 @@ export default function ApiKeysPage() {
 
   const handleDeleteApiKey = (id: string) => {
     deleteApiKey(id);
+  };
+
+  const handleUpdateApiKey = () => {
+    if (!selectedKey) return;
+    updateApiKey({ id: selectedKey.id, data: { name } }, {
+      onSuccess: () => {
+        setEditDialogOpen(false);
+        setSelectedKey(null);
+      },
+    });
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -104,7 +123,13 @@ export default function ApiKeysPage() {
               <TableCell>{key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : 'Never'}</TableCell>
               <TableCell>{key.expiresAt ? new Date(key.expiresAt).toLocaleString() : 'Never'}</TableCell>
               <TableCell>{key.isActive ? 'Active' : 'Inactive'}</TableCell>
-              <TableCell>
+              <TableCell className="space-x-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/developer/api-keys/${key.id}/usage`}>Usage</Link>
+                </Button>
+                <Button size="sm" onClick={() => { setSelectedKey(key); setEditDialogOpen(true); }}>
+                  Edit
+                </Button>
                 <Button size="sm" variant="destructive" onClick={() => handleDeleteApiKey(key.id)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -113,6 +138,28 @@ export default function ApiKeysPage() {
           ))}
         </TableBody>
       </Table>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit API Key</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setEditDialogOpen(false)} variant="outline">Cancel</Button>
+            <Button onClick={handleUpdateApiKey} disabled={isUpdating}>
+              {isUpdating ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {newKeyData && (
         <Dialog open={!!newKeyData} onOpenChange={() => setNewKeyData(null)}>

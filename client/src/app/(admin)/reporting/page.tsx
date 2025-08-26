@@ -32,6 +32,19 @@ export default function ReportingPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Reporting</h1>
 
+      <div className="grid gap-6 md:grid-cols-2">
+        <Link href="/admin/reporting/reputation">
+          <Card className="hover:bg-muted/50">
+            <CardHeader>
+              <CardTitle>Reputation Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>View your sender reputation report.</p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Generate Report</CardTitle>

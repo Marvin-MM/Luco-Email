@@ -55,7 +55,7 @@ export default function LoginPage() {
               <Button type="submit" className="w-full" disabled={isPending}>
                 {isPending ? 'Signing in...' : 'Sign in'}
               </Button>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={() => window.location.href = '/api/auth/google'}>
                 Sign in with Google
               </Button>
               <div className="mt-4 text-center text-sm">

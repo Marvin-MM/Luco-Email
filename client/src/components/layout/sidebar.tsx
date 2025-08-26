@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import { Home, PanelLeft, Settings, Code, AppWindow, Send, LayoutTemplate, Mail, Shield, Users, LineChart, HeartPulse, Cpu, Server } from 'lucide-react';
+import { Home, PanelLeft, Settings, Code, AppWindow, Send, LayoutTemplate, Mail, Shield, Users, LineChart, HeartPulse, Cpu, Server, BarChart } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
@@ -19,6 +19,7 @@ export default function Sidebar() {
 
   const navItems = [
     { href: '/dashboard', icon: Home, label: 'Dashboard' },
+    { href: '/analytics', icon: BarChart, label: 'Analytics' },
     { href: '/applications', icon: AppWindow, label: 'Applications' },
     { href: '/campaigns', icon: Send, label: 'Campaigns' },
     { href: '/templates', icon: LayoutTemplate, label: 'Templates' },
