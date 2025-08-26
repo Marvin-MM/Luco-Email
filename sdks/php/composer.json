@@ -1,0 +1,38 @@
+
+{
+    "name": "luco/sdk",
+    "description": "Official PHP SDK for the Luco email sending platform",
+    "keywords": ["luco", "email", "sdk", "api", "bulk-email", "transactional"],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Luco Team",
+            "email": "support@luco.email"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0",
+        "php-cs-fixer/shim": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Luco\\SDK\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Luco\\SDK\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true
+    }
+}
