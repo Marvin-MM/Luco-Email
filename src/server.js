@@ -135,7 +135,7 @@ app.use('/api/admin', adminRoutes); // This is the correct admin route
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/system', systemRoutes); // Add system routes
-app.use('/api/keys', apiKeyRoutes); // Add API key routes
+app.use('/api/api-keys', apiKeyRoutes); // Add API key routes
 app.use('/api/v1', sdkRoutes); // Add SDK routes
 app.use('/api/reports', reportingRoutes);
 

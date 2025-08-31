@@ -97,6 +97,7 @@ router.get(
   getCampaignAnalytics
 );
 
+// superadmin only
 router.get(
   '/system',
   generalRateLimit,

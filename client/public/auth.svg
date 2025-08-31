@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#2d2d2d"/>
+
+  <!-- Faint radial circle -->
+  <circle cx="256" cy="256" r="120" stroke="#3a3a3a" stroke-width="2" fill="none"/>
+
+  <!-- Cross lines -->
+  <line x1="256" y1="0" x2="256" y2="512" stroke="#3a3a3a" stroke-width="2"/>
+  <line x1="0" y1="256" x2="512" y2="256" stroke="#3a3a3a" stroke-width="2"/>
+  <line x1="0" y1="0" x2="512" y2="512" stroke="#3a3a3a" stroke-width="2"/>
+  <line x1="512" y1="0" x2="0" y2="512" stroke="#3a3a3a" stroke-width="2"/>
+
+  <!-- Center circle for icon -->
+  <circle cx="256" cy="256" r="40" fill="#2d2d2d" stroke="#3a3a3a" stroke-width="2"/>
+
+  <!-- Placeholder image icon -->
+  <rect x="236" y="236" width="40" height="40" fill="none" stroke="#bfbfbf" stroke-width="2" rx="4"/>
+  <circle cx="248" cy="248" r="4" fill="#bfbfbf"/>
+  <path d="M236 266 L250 252 L272 276" stroke="#bfbfbf" stroke-width="2" fill="none"/>
+</svg>

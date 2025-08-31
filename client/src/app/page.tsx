@@ -7,18 +7,23 @@ import { useGetProfile } from '@/hooks/use-auth';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { isLoading } = useGetProfile(); // Trigger profile fetching
 
   useEffect(() => {
     if (!isLoading) {
-      if (isAuthenticated) {
-        router.replace('/dashboard');
+      if (isAuthenticated && user) {
+        // Redirect based on user role
+        if (user.role === 'SUPERADMIN') {
+          router.replace('/admin/dashboard');
+        } else {
+          router.replace('/dashboard');
+        }
       } else {
         router.replace('/auth/login');
       }
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   // Render a loading state while checking auth status
   return <div>Loading...</div>;

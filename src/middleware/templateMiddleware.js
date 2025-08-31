@@ -9,7 +9,7 @@ import { prisma } from '../config/database.js';
  */
 export const templateIdValidation = [
   param('templateId')
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Template ID must be a valid UUID'),
 ];
 

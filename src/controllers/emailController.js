@@ -294,84 +294,190 @@ export const sendEmail = async (req, res) => {
 /**
  * Send bulk emails via API
  */
+// export const sendBulkEmail = async (req, res) => {
+//   try {
+//     const {
+//       emails,
+//       templateId,
+//       variables = {},
+//       batchSize = 100,
+//       delayBetweenBatches = 5000,
+//     } = req.body;
+//     const { tenantId } = req.user;
+
+//     if (!emails || !Array.isArray(emails) || emails.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'emails array is required and must not be empty',
+//       });
+//     }
+
+//     // Validate email format
+//     const emailRegex = VALIDATION_RULES.EMAIL;
+//     const invalidEmails = emails.filter(emailData => {
+//       const email = typeof emailData === 'string' ? emailData : emailData.to;
+//       return !emailRegex.test(email);
+//     });
+
+//     if (invalidEmails.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid email addresses found',
+//         data: { invalidEmails: invalidEmails.slice(0, 10) },
+//       });
+//     }
+
+//     // Check email sending limits
+//     const emailLimit = await billingService.checkEmailLimit(tenantId, emails.length);
+//     if (!emailLimit.allowed) {
+//       return res.status(429).json({
+//         success: false,
+//         message: emailLimit.reason,
+//         data: {
+//           remaining: emailLimit.remaining,
+//           limit: emailLimit.limit,
+//           used: emailLimit.used,
+//         },
+//       });
+//     }
+
+//     // Queue bulk email job
+//     const job = await emailQueueService.queueBulkEmails(
+//       emails.map(emailData => ({
+//         ...emailData,
+//         templateId,
+//         variables: { ...variables, ...(emailData.variables || {}) },
+//         tenantId,
+//       })),
+//       { batchSize, delayBetweenBatches }
+//     );
+
+//     // Update tenant email usage
+//     await tenantService.updateEmailUsage(tenantId, emails.length);
+
+//     // Log successful email addition to queue
+//     logger.info(`Email queued successfully for ${emails.length} recipients`, {
+//       jobId: job.id,
+//       tenantId,
+//       applicationId: req.user.applicationId,
+//     });
+
+//     res.status(202).json({
+//       success: true,
+//       message: 'Bulk emails queued for processing',
+//       data: {
+//         jobId: job.id,
+//         emailCount: emails.length,
+//         estimatedProcessingTime: `${Math.ceil(emails.length / batchSize) * (delayBetweenBatches / 1000)} seconds`,
+//       },
+//     });
+
+//   } catch (error) {
+//     logger.error('Send bulk email error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to queue bulk emails',
+//       error: error.message,
+//     });
+//   }
+// };
+
+
+/**
+ * Send bulk emails by creating and queuing an on-the-fly campaign.
+ */
 export const sendBulkEmail = async (req, res) => {
   try {
     const {
-      emails,
+      recipients, // Renamed from 'emails' for clarity
+      subject,
       templateId,
-      variables = {},
-      batchSize = 100,
-      delayBetweenBatches = 5000,
+      applicationId,
+      identityId,
+      variables = {}
     } = req.body;
-    const { tenantId } = req.user;
+    const { tenantId, id: userId } = req.user;
 
-    if (!emails || !Array.isArray(emails) || emails.length === 0) {
+    // 1. Validate required fields for creating a campaign
+    if (!recipients?.length || !subject || !templateId || !applicationId || !identityId) {
       return res.status(400).json({
         success: false,
-        message: 'emails array is required and must not be empty',
+        message: 'recipients, subject, templateId, applicationId, and identityId are required.',
       });
     }
 
-    // Validate email format
-    const emailRegex = VALIDATION_RULES.EMAIL;
-    const invalidEmails = emails.filter(emailData => {
-      const email = typeof emailData === 'string' ? emailData : emailData.to;
-      return !emailRegex.test(email);
-    });
-
-    if (invalidEmails.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid email addresses found',
-        data: { invalidEmails: invalidEmails.slice(0, 10) },
-      });
-    }
-
-    // Check email sending limits
-    const emailLimit = await billingService.checkEmailLimit(tenantId, emails.length);
+    // 2. Check tenant's email sending limits
+    const emailLimit = await billingService.checkEmailLimit(tenantId, recipients.length);
     if (!emailLimit.allowed) {
       return res.status(429).json({
         success: false,
         message: emailLimit.reason,
-        data: {
-          remaining: emailLimit.remaining,
-          limit: emailLimit.limit,
-          used: emailLimit.used,
-        },
+        data: { remaining: emailLimit.remaining, limit: emailLimit.limit },
       });
     }
 
-    // Queue bulk email job
-    const job = await emailQueueService.queueBulkEmails(
-      emails.map(emailData => ({
-        ...emailData,
+    // 3. Verify that the application, template, and identity belong to the tenant
+    const [application, template, identity] = await Promise.all([
+      prisma.application.findFirst({ where: { id: applicationId, tenantId } }),
+      prisma.template.findFirst({ where: { id: templateId, tenantId, isActive: true } }),
+      prisma.identity.findFirst({ where: { id: identityId, tenantId, status: 'VERIFIED' } }),
+    ]);
+
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found.' });
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found or is inactive.' });
+    if (!identity) return res.status(404).json({ success: false, message: 'Sender identity not found or is not verified.' });
+
+    // 4. Create the Campaign record in the database
+    const campaign = await prisma.campaign.create({
+      data: {
+        name: `API Bulk Send - ${new Date().toISOString()}`,
+        subject: subject || template.subject,
+        status: 'SENDING', // Set to SENDING to be picked up by the queue immediately
+        sentAt: new Date(),
+        totalRecipients: recipients.length,
+        variables,
+        applicationId,
         templateId,
-        variables: { ...variables, ...(emailData.variables || {}) },
+        identityId,
         tenantId,
-      })),
-      { batchSize, delayBetweenBatches }
-    );
+        userId,
+      },
+      include: { // Include relations needed by the queue service
+        template: true,
+        identity: true,
+        tenant: true,
+      }
+    });
 
-    // Update tenant email usage
-    await tenantService.updateEmailUsage(tenantId, emails.length);
+    // 5. Create all CampaignRecipient records
+    const recipientData = recipients.map(recipient => ({
+      campaignId: campaign.id,
+      email: (typeof recipient === 'string' ? recipient : recipient.email).toLowerCase(),
+      variables: recipient.variables || {},
+      status: 'PENDING',
+    }));
 
-    // Log successful email addition to queue
-    logger.info(`Email queued successfully for ${emails.length} recipients`, {
-      jobId: job.id,
+    await prisma.campaignRecipient.createMany({
+      data: recipientData,
+    });
+
+    // 6. Queue the entire campaign for processing
+    await emailQueueService.queueCampaign(campaign);
+
+    logger.info(`Bulk email send queued as campaign`, {
+      campaignId: campaign.id,
       tenantId,
-      applicationId: req.user.applicationId,
+      recipientCount: recipients.length,
     });
 
     res.status(202).json({
       success: true,
-      message: 'Bulk emails queued for processing',
+      message: 'Bulk email job accepted and queued for processing.',
       data: {
-        jobId: job.id,
-        emailCount: emails.length,
-        estimatedProcessingTime: `${Math.ceil(emails.length / batchSize) * (delayBetweenBatches / 1000)} seconds`,
+        campaignId: campaign.id,
+        emailCount: recipients.length,
       },
     });
-
   } catch (error) {
     logger.error('Send bulk email error:', error);
     res.status(500).json({

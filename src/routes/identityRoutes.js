@@ -84,8 +84,8 @@ router.get(
   getIdentityById
 );
 
-router.post(
-  '/:identityId/verify',
+router.get(
+  '/:identityId/verify-status',
   generalRateLimit,
   identityIdValidation,
   validateRequest,

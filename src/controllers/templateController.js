@@ -94,6 +94,7 @@ export const createTemplate = async (req, res) => {
         subject,
         htmlContent,
         textContent: textContent || null,
+        type: 'CUSTOM',
         variables: parsedVariables,
         description: description || null,
         isActive,

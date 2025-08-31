@@ -11,22 +11,38 @@ export default function PrivateRoute({ children, adminOnly = false }: { children
   const { data, isError, isLoading } = useGetProfile();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login');
-    }
+    if (!isLoading) {
+      if (isError || !isAuthenticated || !user) {
+        router.push('/auth/login');
+        return;
+      }
 
-    if (!isLoading && isAuthenticated && adminOnly && user?.role !== 'SUPERADMIN') {
-      router.push('/dashboard');
+      if (adminOnly && user.role !== 'SUPERADMIN') {
+        // Redirect non-admin users to their dashboard
+        router.push('/dashboard');
+        return;
+      }
+
+      // If user is SUPERADMIN but accessing regular routes, allow it
+      // If user is regular USER but accessing admin routes, they'll be redirected above
     }
-  }, [isAuthenticated, isLoading, router, adminOnly, user]);
+  }, [isAuthenticated, isLoading, isError, router, adminOnly, user]);
 
   if (isLoading) {
-    return <div>Loading...</div>; // Or a spinner component
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
   }
 
-  if (isAuthenticated && (!adminOnly || (adminOnly && user?.role === 'SUPERADMIN'))) {
-    return <>{children}</>;
+  if (isError || !isAuthenticated || !user) {
+    return null;
   }
 
-  return null;
+  if (adminOnly && user.role !== 'SUPERADMIN') {
+    return null;
+  }
+
+  return <>{children}</>;
 }

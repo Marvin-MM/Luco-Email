@@ -229,6 +229,7 @@ model Template {
   htmlContent   String
   textContent   String?
   isActive      Boolean         @default(true)
+  variables     Json?
 
   // Template metadata
   description   String?

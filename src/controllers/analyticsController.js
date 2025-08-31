@@ -1,9 +1,9 @@
 import { prisma } from '../config/database.js';
 import { logger } from '../utils/logger.js';
-import * as analyticsService from '../services/analyticsService.js';
-import * as billingService from '../services/billingService.js';
-import * as systemService from '../services/systemService.js';
-import * as emailQueueService from '../services/emailQueueService.js';
+import { analyticsService } from '../services/analyticsService.js';
+import { billingService } from '../services/billingService.js';
+import { systemService } from '../services/systemService.js';
+import { emailQueueService } from '../services/emailQueueService.js';
 
 /**
  * Get tenant dashboard analytics
@@ -230,10 +230,8 @@ export const getEmailAnalytics = async (req, res) => {
       granularity = 'daily',
     } = req.query;
 
-    // Calculate date range
     const endDate = new Date();
     let startDate = new Date();
-
     switch (period) {
       case '7d':
         startDate.setDate(endDate.getDate() - 7);
@@ -250,56 +248,52 @@ export const getEmailAnalytics = async (req, res) => {
 
     const whereClause = {
       tenantId,
-      createdAt: {
-        gte: startDate,
-        lte: endDate,
-      },
+      createdAt: { gte: startDate, lte: endDate },
       ...(applicationId && { applicationId }),
       ...(identityId && { identityId }),
       ...(templateId && { templateId }),
     };
 
-    // Get email statistics by status
     const emailsByStatus = await prisma.emailLog.groupBy({
       by: ['status'],
       where: whereClause,
-      _count: {
-        id: true,
-      },
+      _count: { id: true },
     });
 
-    // Get time-series data
-    const timeSeriesData = await prisma.$queryRaw`
-      SELECT 
-        DATE_TRUNC(${granularity}, created_at) as period,
-        status,
-        COUNT(*) as count
+    const safeGranularity = { hourly: 'hour', daily: 'day', weekly: 'week' }[granularity] || 'day';
+    const params = [tenantId, startDate, endDate];
+    let query = `
+      SELECT DATE_TRUNC('${safeGranularity}', "createdAt") as period, status, COUNT(*) as count
       FROM email_logs 
-      WHERE tenant_id = ${tenantId}
-        AND created_at >= ${startDate}
-        AND created_at <= ${endDate}
-        ${applicationId ? `AND application_id = ${applicationId}` : ''}
-        ${identityId ? `AND identity_id = ${identityId}` : ''}
-        ${templateId ? `AND template_id = ${templateId}` : ''}
-      GROUP BY period, status
-      ORDER BY period ASC
-    `;
+      WHERE "tenantId" = $1 AND "createdAt" >= $2 AND "createdAt" <= $3`;
 
-    // Get top performing templates
+    if (applicationId) {
+      params.push(applicationId);
+      query += ` AND "applicationId" = $${params.length}`;
+    }
+    if (identityId) {
+      params.push(identityId);
+      query += ` AND "identityId" = $${params.length}`;
+    }
+    if (templateId) {
+      params.push(templateId);
+      query += ` AND "templateId" = $${params.length}`;
+    }
+    query += ` GROUP BY period, status ORDER BY period ASC`;
+    const timeSeriesData = await prisma.$queryRawUnsafe(query, ...params);
+    
+    // --- THIS IS THE FIX ---
+    const processedTimeSeries = timeSeriesData.map(item => ({
+      ...item,
+      count: Number(item.count),
+    }));
+    // --- END OF FIX ---
+
     const topTemplates = await prisma.emailLog.groupBy({
       by: ['templateId'],
-      where: {
-        ...whereClause,
-        templateId: { not: null },
-      },
-      _count: {
-        id: true,
-      },
-      orderBy: {
-        _count: {
-          id: 'desc',
-        },
-      },
+      where: { ...whereClause, templateId: { not: null } },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
       take: 10,
     });
 
@@ -380,7 +374,7 @@ export const getEmailAnalytics = async (req, res) => {
             return acc;
           }, {}),
         },
-        timeSeries: timeSeriesData,
+        timeSeries: processedTimeSeries, // Use the fixed data
         topTemplates: templateDetails,
         issueAnalysis: {
           bounceReasons: bounceReasons.map(reason => ({
@@ -392,13 +386,7 @@ export const getEmailAnalytics = async (req, res) => {
             count: reason._count.id,
           })),
         },
-        filters: {
-          period,
-          applicationId,
-          identityId,
-          templateId,
-          granularity,
-        },
+        filters: { period, applicationId, identityId, templateId, granularity },
       },
     });
   } catch (error) {
@@ -600,7 +588,7 @@ export const getSystemMetrics = async (req, res) => {
     }
 
     // System-wide metrics for superadmin
-    const metrics = await analyticsService.getSystemMetrics();
+    const metrics = await systemService.getSystemMetrics();
 
     res.json({
       success: true,

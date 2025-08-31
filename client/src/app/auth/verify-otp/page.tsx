@@ -20,8 +20,13 @@ export default function VerifyOtpPage() {
     e.preventDefault();
     if (!email) return;
     verifyOtp({ email, otpCode: otp }, {
-      onSuccess: () => {
-        router.push('/dashboard');
+      onSuccess: (data) => {
+        // Role-based redirect
+        if (data.data.user.role === 'SUPERADMIN') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/dashboard');
+        }
       }
     });
   };

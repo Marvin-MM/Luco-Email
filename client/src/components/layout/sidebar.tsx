@@ -1,113 +1,223 @@
-'use client';
+"use client"
 
-import { useState } from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Button } from '@/components/ui/button';
-import { Home, PanelLeft, Settings, Code, AppWindow, Send, LayoutTemplate, Mail, Shield, Users, LineChart, HeartPulse, Cpu, Server, BarChart } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useAuthStore } from '@/store/auth';
+import * as React from "react"
+import {
+  Home,
+  BarChart,
+  AppWindow,
+  Send,
+  LayoutTemplate,
+  Mail,
+  Code,
+  Shield,
+  Users,
+  LineChart,
+  HeartPulse,
+  Cpu,
+  Server,
+  Settings,
+  Building2,
+} from "lucide-react"
 
-export default function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const pathname = usePathname();
-  const { user } = useAuthStore();
+import { NavMain } from "@/components/nav-main"
+import { NavUser } from "@/components/nav-user"
+import { ApplicationSwitcher } from "@/components/team-switcher"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar"
+import { useAuthStore } from '@/store/auth'
+import { useApplicationsStore } from '@/store/applications'
 
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-  };
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user, tenant } = useAuthStore()
+  const { applications, currentApplication } = useApplicationsStore()
 
-  const navItems = [
-    { href: '/dashboard', icon: Home, label: 'Dashboard' },
-    { href: '/analytics', icon: BarChart, label: 'Analytics' },
-    { href: '/applications', icon: AppWindow, label: 'Applications' },
-    { href: '/campaigns', icon: Send, label: 'Campaigns' },
-    { href: '/templates', icon: LayoutTemplate, label: 'Templates' },
-    { href: '/send-email', icon: Mail, label: 'Send Email' },
-    { href: '/developer/api-keys', icon: Code, label: 'Developer' },
-  ];
+  // Regular user navigation items
+  const userNavItems = [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: Home,
+      isActive: true,
+    },
+    {
+      title: "Analytics",
+      url: "/analytics",
+      icon: BarChart,
+    },
+    {
+      title: "Applications",
+      url: "/applications",
+      icon: AppWindow,
+    },
+    {
+      title: "Campaigns",
+      url: "/campaigns",
+      icon: Send,
+    },
+    {
+      title: "Templates",
+      url: "/templates", 
+      icon: LayoutTemplate,
+    },
+    {
+      title: "Send Email",
+      url: "/send-email",
+      icon: Mail,
+    },
+    {
+      title: "Developer",
+      url: "/developer",
+      icon: Code,
+      items: [
+        {
+          title: "API Keys",
+          url: "/developer/api-keys",
+        },
+        {
+          title: "Documentation",
+          url: "/developer/docs",
+        },
+        {
+          title: "Webhooks",
+          url: "/developer/webhooks",
+        },
+      ],
+    },
+  ]
 
+  // Admin navigation items
   const adminNavItems = [
-    { href: '/admin/dashboard', icon: Shield, label: 'Admin' },
-    { href: '/admin/tenants', icon: Users, label: 'Tenants' },
-    { href: '/admin/reporting', icon: LineChart, label: 'Reporting' },
-    { href: '/admin/health', icon: HeartPulse, label: 'Health' },
-    { href: '/admin/system', icon: Cpu, label: 'System' },
-    { href: '/admin/queue', icon: Server, label: 'Queue' },
-  ];
+    {
+      title: "Admin Dashboard",
+      url: "/admin/dashboard",
+      icon: Shield,
+      isActive: true,
+    },
+    {
+      title: "Tenants",
+      url: "/admin/tenants",
+      icon: Users,
+    },
+    {
+      title: "Reporting",
+      url: "/admin/reporting",
+      icon: LineChart,
+    },
+    {
+      title: "System",
+      url: "/admin/system",
+      icon: Cpu,
+      items: [
+        {
+          title: "Health",
+          url: "/admin/health",
+        },
+        {
+          title: "Queue",
+          url: "/admin/queue",
+        },
+        {
+          title: "Logs",
+          url: "/admin/logs",
+        },
+      ],
+    },
+  ]
+
+  // Settings for all users
+  const settingsNavItems = [
+    {
+      title: "Settings",
+      url: "/settings",
+      icon: Settings,
+      items: [
+        {
+          title: "Profile",
+          url: "/settings/profile",
+        },
+        {
+          title: "Preferences", 
+          url: "/settings/preferences",
+        },
+        {
+          title: "Security",
+          url: "/settings/security",
+        },
+      ],
+    },
+  ]
+
+  // Determine navigation structure based on user role
+  const getNavigationData = () => {
+    const baseData = {
+      user: {
+        name: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : '',
+        email: user?.email || '',
+        avatar: user?.profilePicture || '/placeholder-avatar.jpg',
+      },
+      teams: applications.map((app) => ({
+        name: app.name,
+        logo: Building2,
+        plan: tenant?.subscriptionPlan || 'Free',
+      })),
+    }
+
+    if (user?.role === 'SUPERADMIN') {
+      return {
+        ...baseData,
+        navSections: [
+          {
+            title: "Admin",
+            items: adminNavItems,
+          },
+          // {
+          //   title: "User Dashboard", 
+          //   items: userNavItems,
+          // },
+          {
+            title: "Configuration",
+            items: settingsNavItems,
+          },
+        ],
+      }
+    } else {
+      return {
+        ...baseData,
+        navSections: [
+          {
+            title: "Platform",
+            items: userNavItems,
+          },
+          {
+            title: "Configuration",
+            items: settingsNavItems,
+          },
+        ],
+      }
+    }
+  }
+
+  const data = getNavigationData()
 
   return (
-    <TooltipProvider>
-      <aside className={`relative flex h-screen flex-col border-r bg-background transition-all ${isCollapsed ? 'w-16' : 'w-64'}`}>
-        <div className="flex h-16 items-center justify-between border-b p-4">
-          <h1 className={`text-lg font-bold ${isCollapsed ? 'hidden' : 'block'}`}>Luco Email</h1>
-          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-            <PanelLeft className="h-6 w-6" />
-          </Button>
-        </div>
-        <nav className="flex flex-col gap-2 p-4">
-          {navItems.map((item) => (
-            <Tooltip key={item.href}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
-                  asChild
-                  className={`justify-start ${isCollapsed ? 'w-full' : ''}`}
-                >
-                  <Link href={item.href}>
-                    <item.icon className="mr-2 h-4 w-4" />
-                    <span className={isCollapsed ? 'hidden' : 'block'}>{item.label}</span>
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-            </Tooltip>
-          ))}
-
-          {user?.role === 'SUPERADMIN' && (
-            <>
-              <hr className="my-4" />
-              <h2 className={`px-4 text-lg font-semibold tracking-tight ${isCollapsed ? 'hidden' : 'block'}`}>
-                Admin
-              </h2>
-              {adminNavItems.map((item) => (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={pathname.startsWith(item.href) ? 'secondary' : 'ghost'}
-                      asChild
-                      className={`justify-start ${isCollapsed ? 'w-full' : ''}`}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className="mr-2 h-4 w-4" />
-                        <span className={isCollapsed ? 'hidden' : 'block'}>{item.label}</span>
-                      </Link>
-                    </Button>
-                  </TooltipTrigger>
-                  {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                </Tooltip>
-              ))}
-            </>
-          )}
-        </nav>
-        <div className="mt-auto flex flex-col gap-2 p-4">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={pathname.startsWith('/settings') ? 'secondary' : 'ghost'}
-                asChild
-                className={`justify-start ${isCollapsed ? 'w-full' : ''}`}
-              >
-                <Link href="/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span className={isCollapsed ? 'hidden' : 'block'}>Settings</span>
-                </Link>
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && <TooltipContent side="right">Settings</TooltipContent>}
-          </Tooltip>
-        </div>
-      </aside>
-    </TooltipProvider>
-  );
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <ApplicationSwitcher />
+      </SidebarHeader>
+      <SidebarContent>
+        {data.navSections.map((section, index) => (
+          <NavMain key={index} items={section.items} title={section.title} />
+        ))}
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={data.user} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
 }

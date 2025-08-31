@@ -6,8 +6,10 @@ import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import TiptapEditor from '@/components/tiptap-editor';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+
+const TiptapEditor = dynamic(() => import('@/components/tiptap-editor'), { ssr: false });
 
 export default function NewTemplatePage() {
   const { currentApplication } = useAuthStore();

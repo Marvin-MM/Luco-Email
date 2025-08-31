@@ -462,29 +462,153 @@ export const loginWithEmail = async (req, res) => {
 /**
  * Complete Google OAuth registration with organization
  */
+// export const completeGoogleRegistration = async (req, res) => {
+//   try {
+//     const { organizationName } = req.body;
+
+//     if (!req.user || !req.user.isPending) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'No pending Google registration found',
+//       });
+//     }
+
+//     if (!organizationName) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Organization name is required',
+//       });
+//     }
+
+//     const { pendingUser } = req.user;
+
+//     // Check if organization name is already taken
+//     const existingTenant = await prisma.tenant.findUnique({
+//       where: { organizationName },
+//     });
+
+//     if (existingTenant) {
+//       return res.status(409).json({
+//         success: false,
+//         message: 'Organization name already taken',
+//       });
+//     }
+
+//     // Create tenant
+//     const tenant = await prisma.tenant.create({
+//       data: {
+//         organizationName,
+//         status: 'ACTIVE', // Auto-activate for Google OAuth users
+//       },
+//     });
+
+//     // Create user
+//     const user = await prisma.user.create({
+//       data: {
+//         email: pendingUser.email,
+//         googleId: pendingUser.googleId,
+//         firstName: pendingUser.firstName,
+//         lastName: pendingUser.lastName,
+//         profilePicture: pendingUser.profilePicture,
+//         isEmailVerified: true, // Auto-verify for Google OAuth
+//         tenantId: tenant.id,
+//         lastLoginAt: new Date(),
+//       },
+//       include: { tenant: true },
+//     });
+
+//     // Generate tokens
+//     const { accessToken, refreshToken } = generateTokens(user);
+
+//     // Set cookies
+//     setTokenCookies(res, accessToken, refreshToken);
+
+//     // Send welcome email
+//     await emailService.sendWelcomeEmail(
+//       user.email,
+//       user.firstName,
+//       organizationName
+//     );
+
+//     logger.info('Google OAuth registration completed', {
+//       userId: user.id,
+//       email: user.email,
+//       tenantId: tenant.id,
+//     });
+
+//     res.json({
+//       success: true,
+//       message: 'Registration completed successfully',
+//       data: {
+//         user: {
+//           id: user.id,
+//           email: user.email,
+//           firstName: user.firstName,
+//           lastName: user.lastName,
+//           role: user.role,
+//           profilePicture: user.profilePicture,
+//         },
+//         tenant: {
+//           id: tenant.id,
+//           organizationName: tenant.organizationName,
+//           status: tenant.status,
+//         },
+//       },
+//     });
+//   } catch (error) {
+//     logger.error('Google registration completion error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Registration completion failed',
+//     });
+//   }
+// };
+
+/**
+ * Complete Google OAuth registration with organization
+ */
 export const completeGoogleRegistration = async (req, res) => {
   try {
     const { organizationName } = req.body;
 
-    if (!req.user || !req.user.isPending) {
+    // Check for temporary Google token instead of req.user
+    const tempToken = req.cookies.tempGoogleToken;
+    if (!tempToken) {
       return res.status(400).json({
         success: false,
-        message: 'No pending Google registration found',
+        message: 'No pending Google registration found. Please start the registration process again.',
       });
     }
 
-    if (!organizationName) {
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.JWT_ACCESS_SECRET);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired registration token. Please start the registration process again.',
+      });
+    }
+
+    if (!decoded.isPending || !decoded.pendingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid registration data. Please start the registration process again.',
+      });
+    }
+
+    if (!organizationName || organizationName.trim().length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Organization name is required',
       });
     }
 
-    const { pendingUser } = req.user;
+    const { pendingUser } = decoded;
 
     // Check if organization name is already taken
     const existingTenant = await prisma.tenant.findUnique({
-      where: { organizationName },
+      where: { organizationName: organizationName.trim() },
     });
 
     if (existingTenant) {
@@ -494,28 +618,56 @@ export const completeGoogleRegistration = async (req, res) => {
       });
     }
 
-    // Create tenant
-    const tenant = await prisma.tenant.create({
-      data: {
-        organizationName,
-        status: 'ACTIVE', // Auto-activate for Google OAuth users
-      },
+    // Check if user already exists (edge case)
+    const existingUser = await prisma.user.findUnique({
+      where: { email: pendingUser.email },
     });
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email: pendingUser.email,
-        googleId: pendingUser.googleId,
-        firstName: pendingUser.firstName,
-        lastName: pendingUser.lastName,
-        profilePicture: pendingUser.profilePicture,
-        isEmailVerified: true, // Auto-verify for Google OAuth
-        tenantId: tenant.id,
-        lastLoginAt: new Date(),
-      },
-      include: { tenant: true },
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email already exists',
+      });
+    }
+
+    // Create tenant and user in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create tenant
+      const tenant = await tx.tenant.create({
+        data: {
+          organizationName: organizationName.trim(),
+          sesConfigurationSet: `luco-${organizationName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`,
+          status: 'ACTIVE', // Auto-activate for Google OAuth users
+          subscriptionPlan: 'FREE',
+          subscriptionStatus: 'ACTIVE',
+          monthlyEmailLimit: 200,
+          customTemplateLimit: 5,
+          attachmentSizeLimit: 100,
+        },
+      });
+
+      // Create user
+      const user = await tx.user.create({
+        data: {
+          email: pendingUser.email,
+          googleId: pendingUser.googleId,
+          firstName: pendingUser.firstName,
+          lastName: pendingUser.lastName,
+          profilePicture: pendingUser.profilePicture,
+          isEmailVerified: true, // Auto-verify for Google OAuth
+          tenantId: tenant.id,
+          lastLoginAt: new Date(),
+        },
+        include: { tenant: true },
+      });
+
+      return { user, tenant };
     });
+
+    const { user, tenant } = result;
+
+    // Clear temporary token
+    res.clearCookie('tempGoogleToken');
 
     // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user);
@@ -523,12 +675,16 @@ export const completeGoogleRegistration = async (req, res) => {
     // Set cookies
     setTokenCookies(res, accessToken, refreshToken);
 
-    // Send welcome email
-    await emailService.sendWelcomeEmail(
+    // Setup tenant SES (async)
+    tenantService.setupTenantSES(tenant.id, tenant.organizationName, tenant.sesConfigurationSet)
+      .catch(err => logger.error('Post-registration SES setup failed:', err));
+
+    // Send welcome email (async)
+    emailService.sendWelcomeEmail(
       user.email,
       user.firstName,
       organizationName
-    );
+    ).catch(err => logger.error('Welcome email failed:', err));
 
     logger.info('Google OAuth registration completed', {
       userId: user.id,
@@ -552,6 +708,7 @@ export const completeGoogleRegistration = async (req, res) => {
           id: tenant.id,
           organizationName: tenant.organizationName,
           status: tenant.status,
+          subscriptionPlan: tenant.subscriptionPlan,
         },
       },
     });
@@ -902,14 +1059,40 @@ export const googleCallback = async (req, res) => {
   try {
     const user = req.user;
     
-    if (user.isNewUser) {
+    if (!user) {
+      logger.error('No user data in Google callback');
+      return res.redirect(`${process.env.CLIENT_URL}/auth/login?error=google_auth_failed`);
+    }
+    
+    if (user.isPending) {
+      // Store pending user data in a temporary token for the frontend
+      const tempToken = jwt.sign(
+        { pendingUser: user.pendingUser, isPending: true },
+        process.env.JWT_ACCESS_SECRET,
+        { expiresIn: '10m' }
+      );
+      
+      // Set temporary token as cookie
+      res.cookie('tempGoogleToken', tempToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 10 * 60 * 1000, // 10 minutes
+      });
+      
       // Redirect to complete registration
       res.redirect(`${process.env.CLIENT_URL}/auth/complete-google-registration`);
     } else {
-      // Generate tokens and redirect to dashboard
+      // Generate tokens and redirect based on role
       const tokens = generateTokens(user);
       setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
-      res.redirect(`${process.env.CLIENT_URL}/dashboard`);
+      
+      // Role-based redirect
+      const redirectUrl = user.role === 'SUPERADMIN' 
+        ? `${process.env.CLIENT_URL}/admin/dashboard`
+        : `${process.env.CLIENT_URL}/dashboard`;
+        
+      res.redirect(redirectUrl);
     }
   } catch (error) {
     logger.error('Google callback error:', error);
@@ -973,5 +1156,6 @@ export const authController = {
   forgotPassword,
   resetPassword,
   googleCallback,
-  updateOrganizationSettings
+  updateOrganizationSettings,
+  completeGoogleRegistration
 };

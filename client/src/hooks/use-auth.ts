@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { useAuthStore } from '@/store/auth';
 
@@ -38,11 +38,20 @@ export const useLogin = () => {
 // Logout
 export const useLogout = () => {
   const { logout } = useAuthStore();
+  const queryClient = useQueryClient();
+  
   return useMutation({
     mutationFn: () => axios.post('/auth/logout').then(res => res.data),
     onSuccess: () => {
+      // Clear all queries and logout
+      queryClient.clear();
       logout();
     },
+    onError: () => {
+      // Even if logout fails on server, clear client state
+      queryClient.clear();
+      logout();
+    }
   });
 };
 
@@ -89,30 +98,41 @@ export const useGetProfile = () => {
   });
 };
 
-// Get Dashboard Analytics
-export const useGetDashboard = (period: string = '30d') => {
-  return useQuery({
-    queryKey: ['dashboard', period],
-    queryFn: () => axios.get(`/analytics/dashboard?period=${period}`).then(res => res.data),
-  });
-};
-
+// Update Profile
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
+  const { setUser } = useAuthStore();
+  
   return useMutation({
     mutationFn: (data: any) => axios.put('/auth/profile', data).then(res => res.data),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update the profile query cache
       queryClient.invalidateQueries({ queryKey: ['profile'] });
+      
+      // If the response includes updated user data, update the store
+      if (data.user) {
+        const currentStore = useAuthStore.getState();
+        setUser(data.user, currentStore.tenant);
+      }
     },
   });
 };
 
+// Change Password
 export const useChangePassword = () => {
+  const queryClient = useQueryClient();
+  
   return useMutation({
-    mutationFn: (data: any) => axios.post('/auth/change-password', data).then(res => res.data),
+    mutationFn: (data: { currentPassword: string; newPassword: string }) => 
+      axios.post('/auth/change-password', data).then(res => res.data),
+    onSuccess: () => {
+      // Optionally clear sensitive queries after password change
+      queryClient.removeQueries({ queryKey: ['profile'] });
+    },
   });
 };
 
+// Complete Google Registration
 export const useCompleteGoogleRegistration = () => {
   const { setUser } = useAuthStore();
   return useMutation({

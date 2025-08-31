@@ -115,26 +115,26 @@ class SESService {
   //   }
   // }
 
-  // /**
-  //  * Get email identity verification status
-  //  */
-  // async getEmailIdentityStatus(emailAddress) {
-  //   try {
-  //     const command = new SESv2.GetEmailIdentityCommand({
-  //       EmailIdentity: emailAddress
-  //     });
+  /**
+   * Get email identity verification status
+   */
+  async getEmailIdentityStatus(emailAddress) {
+    try {
+      const command = new SESv2.GetEmailIdentityCommand({
+        EmailIdentity: emailAddress
+      });
 
-  //     const result = await this.client.send(command);
-  //     return {
-  //       verified: result.VerifiedForSendingStatus,
-  //       dkimStatus: result.DkimAttributes?.Status,
-  //       dkimTokens: result.DkimAttributes?.Tokens || []
-  //     };
-  //   } catch (error) {
-  //     logger.error(`Failed to get email identity status for ${emailAddress}:`, error);
-  //     throw new Error(`Failed to get email identity status: ${error.message}`);
-  //   }
-  // }
+      const result = await this.client.send(command);
+      return {
+        verified: result.VerifiedForSendingStatus,
+        dkimStatus: result.DkimAttributes?.Status,
+        dkimTokens: result.DkimAttributes?.Tokens || []
+      };
+    } catch (error) {
+      logger.error(`Failed to get email identity status for ${emailAddress}:`, error);
+      throw new Error(`Failed to get email identity status: ${error.message}`);
+    }
+  }
 
 /**
    * Create an email identity and begin the verification process.
