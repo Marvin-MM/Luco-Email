@@ -33,15 +33,15 @@ const emailAnalyticsValidation = [
   ...periodValidation,
   query('applicationId')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid application ID'),
   query('identityId')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid identity ID'),
   query('templateId')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid template ID'),
   query('granularity')
     .optional()
@@ -57,7 +57,7 @@ const campaignAnalyticsValidation = [
     .withMessage('Invalid status'),
   query('applicationId')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid application ID'),
 ];
 

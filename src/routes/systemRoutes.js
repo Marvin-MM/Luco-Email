@@ -17,7 +17,7 @@ const router = express.Router();
 
 // Apply authentication and admin middleware
 router.use(authenticateToken);
-router.use(requireAdmin);
+// router.use(requireAdmin);
 router.use(generalRateLimit);
 
 /**

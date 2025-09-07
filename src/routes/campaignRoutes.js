@@ -26,13 +26,13 @@ const createCampaignValidation = [
     .isLength({ min: 1, max: 200 })
     .withMessage('Campaign name must be between 1 and 200 characters'),
   body('applicationId')
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid application ID'),
   body('templateId')
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid template ID'),
   body('identityId')
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid identity ID'),
   body('subject')
     .optional()
@@ -71,7 +71,7 @@ const createCampaignValidation = [
 
 const sendCampaignValidation = [
   param('campaignId')
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid campaign ID'),
   body('batchSize')
     .optional()
@@ -85,7 +85,7 @@ const sendCampaignValidation = [
 
 const campaignIdValidation = [
   param('campaignId')
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid campaign ID'),
 ];
 
@@ -109,7 +109,7 @@ const getCampaignsValidation = [
     .withMessage('Invalid status value'),
   query('applicationId')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid application ID'),
   query('sortBy')
     .optional()

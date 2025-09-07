@@ -74,7 +74,7 @@ class RedisManager {
       return {
         status: 'connected',
         latency: `${latency}ms`,
-        memory: await this.client.memory('usage'),
+        // memory: await this.client.memory('usage'),
       };
     } catch (error) {
       logger.error('Redis health check failed:', error);

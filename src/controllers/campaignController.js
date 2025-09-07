@@ -380,6 +380,82 @@ export const getCampaignById = async (req, res) => {
 /**
  * Send campaign (start processing)
  */
+// export const sendCampaign = async (req, res) => {
+//   try {
+//     const { campaignId } = req.params;
+//     const { tenantId } = req.user;
+//     const { batchSize = 100, delayBetweenBatches = 5000 } = req.body;
+
+//     const campaign = await prisma.campaign.findFirst({
+//       where: {
+//         id: campaignId,
+//         tenantId,
+//       },
+//       include: {
+//         application: true,
+//         template: true,
+//         identity: true,
+//         tenant: true,
+//       },
+//     });
+
+//     if (!campaign) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Campaign not found',
+//       });
+//     }
+
+//     if (!['DRAFT', 'SCHEDULED'].includes(campaign.status)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Cannot send campaign with status: ${campaign.status}`,
+//       });
+//     }
+
+//     // Update campaign status to SENDING
+//     await prisma.campaign.update({
+//       where: { id: campaignId },
+//       data: {
+//         status: 'SENDING',
+//         sentAt: new Date(),
+//       },
+//     });
+
+//     // Queue campaign for processing
+//     await emailQueueService.queueCampaign(campaign, {
+//       batchSize: parseInt(batchSize),
+//       delayBetweenBatches: parseInt(delayBetweenBatches),
+//     });
+
+//     logger.info('Campaign queued for sending', {
+//       campaignId,
+//       campaignName: campaign.name,
+//       tenantId,
+//       userId: req.user.id,
+//     });
+
+//     res.json({
+//       success: true,
+//       message: 'Campaign queued for sending',
+//       data: {
+//         campaignId,
+//         status: 'SENDING',
+//         queuedAt: new Date().toISOString(),
+//       },
+//     });
+//   } catch (error) {
+//     logger.error('Send campaign error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to send campaign',
+//     });
+//   }
+// };
+
+/**
+ * Send campaign (start processing)
+ */
 export const sendCampaign = async (req, res) => {
   try {
     const { campaignId } = req.params;
@@ -413,6 +489,21 @@ export const sendCampaign = async (req, res) => {
       });
     }
 
+    // Check if email queue service is ready
+    const queueStatus = emailQueueService.getStatus();
+    if (!queueStatus.ready) {
+      logger.error('Email queue service not ready', queueStatus);
+      return res.status(503).json({
+        success: false,
+        message: 'Email service is temporarily unavailable. Please try again in a few minutes.',
+        details: {
+          initialized: queueStatus.initialized,
+          redisConnected: queueStatus.redisConnected,
+          error: queueStatus.error
+        }
+      });
+    }
+
     // Update campaign status to SENDING
     await prisma.campaign.update({
       where: { id: campaignId },
@@ -423,7 +514,7 @@ export const sendCampaign = async (req, res) => {
     });
 
     // Queue campaign for processing
-    await emailQueueService.queueCampaign(campaign, {
+    const job = await emailQueueService.queueCampaign(campaign, {
       batchSize: parseInt(batchSize),
       delayBetweenBatches: parseInt(delayBetweenBatches),
     });
@@ -433,6 +524,7 @@ export const sendCampaign = async (req, res) => {
       campaignName: campaign.name,
       tenantId,
       userId: req.user.id,
+      jobId: job.id,
     });
 
     res.json({
@@ -442,14 +534,42 @@ export const sendCampaign = async (req, res) => {
         campaignId,
         status: 'SENDING',
         queuedAt: new Date().toISOString(),
+        jobId: job.id,
+        estimatedProcessingTime: `${Math.ceil(campaign.totalRecipients / batchSize)} batches`,
       },
     });
   } catch (error) {
     logger.error('Send campaign error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send campaign',
-    });
+
+    // Try to update campaign status to failed if we can identify the campaign
+    const { campaignId } = req.params;
+    if (campaignId) {
+      try {
+        await prisma.campaign.update({
+          where: { id: campaignId },
+          data: {
+            status: 'FAILED',
+            failureReason: error.message,
+            completedAt: new Date(),
+          },
+        });
+      } catch (updateError) {
+        logger.error('Failed to update campaign status after error:', updateError);
+      }
+    }
+
+    // Determine appropriate error response
+    if (error.message.includes('Redis') || error.message.includes('queue')) {
+      res.status(503).json({
+        success: false,
+        message: 'Email service is temporarily unavailable. Please try again in a few minutes.',
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send campaign',
+      });
+    }
   }
 };
 

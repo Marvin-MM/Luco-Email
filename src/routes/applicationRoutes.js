@@ -63,7 +63,7 @@ const updateApplicationValidation = [
     .withMessage('isActive must be a boolean'),
   body('defaultIdentityId')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Invalid default identity ID'),
 ];
 

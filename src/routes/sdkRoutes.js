@@ -34,7 +34,7 @@ const sendEmailValidation = [
     .withMessage('Template must be an object'),
   body('template.id')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Template ID must be a valid UUID'),
   body('template.variables')
     .optional()
@@ -76,7 +76,7 @@ const sendBulkEmailValidation = [
     .withMessage('Template must be an object'),
   body('template.id')
     .optional()
-    .isUUID()
+    .matches(/^c[a-z0-9]{24}$/)
     .withMessage('Template ID must be a valid UUID')
 ];
 

@@ -15,6 +15,7 @@ import passport from './config/passport.js';
 import { validateEnvVars } from './config/environment.js';
 import { queueService } from './services/queueService.js';
 import { performanceMonitoring, requestSizeMonitoring } from './middleware/monitoring.js';
+import { emailQueueService } from './services/emailQueueService.js';
 
 // Import route modules
 import authRoutes from './routes/authRoutes.js';
@@ -49,12 +50,21 @@ const redisClient = createClient({
   url: process.env.REDIS_URL
 });
 
+
 redisClient.on('error', (err) => {
   logger.error('Redis Client Error', err);
 });
 
 await redisClient.connect();
 logger.info('Connected to Redis');
+
+// During app startup
+try {
+  await emailQueueService.initialize();
+  logger.info('Queue service initialized on startup');
+} catch (error) {
+  logger.error('Failed to initialize queue service on startup:', error);
+}
 
 // Security middleware
 app.use(helmet({
